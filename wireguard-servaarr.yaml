@@ -1,0 +1,82 @@
+# PUID
+# PGID
+# TZ
+# PLEX_CLAIM
+
+networks:
+  servaarr:
+    external: true
+    name: servaarr
+volumes:
+  disk1:
+    external: true
+    name: disk1
+  disk2:
+    external: true
+    name: disk2
+  downloads:
+    external: true
+    name: downloads
+      
+services:
+  wireguard:
+    image: lscr.io/linuxserver/wireguard:latest
+    container_name: wireguard
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE #optional
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - PERSISTENTKEEPALIVE_PEERS=true
+      - LOG_CONFS=true #optional
+    volumes:
+      - /opt/configs/wireguard:/config
+      - /lib/modules:/lib/modules #optional
+    ports:
+      - 51820:51820/udp
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+    restart: unless-stopped
+    networks:
+      - servaarr
+
+  plex:
+    image: lscr.io/linuxserver/plex:latest
+    container_name: plex
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      # - PLEX_CLAIM=${PLEX_CLAIM}
+    volumes:
+      - disk1:/disk1
+      - disk2:/disk2
+      - /opt/configs/plex:/config
+    restart: unless-stopped
+    devices:
+      - "/dev/dri:/dev/dri"
+      - "/dev/snd:/dev/snd"
+    depends_on:
+      - wireguard
+    network_mode: service:wireguard
+
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - disk1:/disk1
+      - disk2:/disk2
+      - /opt/configs/jellyfin:/config
+    restart: unless-stopped
+    devices:
+      - "/dev/dri:/dev/dri"
+      - "/dev/snd:/dev/snd"
+    depends_on:
+      - wireguard
+    network_mode: service:wireguard
